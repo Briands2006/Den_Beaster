@@ -100,5 +100,12 @@
   }
   html {
     @apply font-sans;
+    /* Basisgrootte van de hele app. Alle Tailwind-maten zijn rem (= veelvoud hiervan),
+       dus tekst, knoppen, inputs en marges schalen allemaal mee.
+       125% van de browserinstelling (meestal 16px → 20px): shadcn is compact
+       (text-sm/text-xs) en Barlow Condensed is smal, dus zonder dit is alles te klein.
+       Bewust in % en niet in px: wie in zijn browser/gsm grotere tekst instelt,
+       krijgt die vergroting er nog bovenop. */
+    font-size: 125%;
   }
 }
