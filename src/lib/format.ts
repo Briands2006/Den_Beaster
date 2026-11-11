@@ -30,3 +30,17 @@ export const gigDate = (isoDate: string) => dateFormatter.format(new Date(isoDat
 // De locale "en-CA" geeft toevallig precies het formaat YYYY-MM-DD terug.
 const todayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Brussels" });
 export const todayISO = () => todayFormatter.format(new Date());
+
+// Hoeveel dagen tot de gig? Beide datums zijn "YYYY-MM-DD", dus allebei middernacht UTC:
+// het verschil is altijd een geheel aantal dagen (geen gedoe met zomeruur).
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const daysUntil = (isoDate: string, today: string) =>
+  Math.round((Date.parse(isoDate) - Date.parse(today)) / DAY_MS);
+
+// Kort label voor gigs die eraan komen. null = te ver weg, dan tonen we niets.
+export function countdown(days: number) {
+  if (days === 0) return "Vandaag";
+  if (days === 1) return "Morgen";
+  if (days > 1 && days <= 7) return `Over ${days} dagen`;
+  return null;
+}

@@ -51,7 +51,7 @@ export function EventForm({ action, defaults = {}, submitLabel, cancelHref }: Pr
       <div className="space-y-2">
         <Label htmlFor="eventDate">Datum *</Label>
         {/* type="date": de gsm toont een kalender, en de waarde is altijd YYYY-MM-DD */}
-        <Input id="eventDate" name="eventDate" type="date" defaultValue={values.eventDate} />
+        <Input id="eventDate" name="eventDate" type="date" required defaultValue={values.eventDate} />
       </div>
 
       {/* Op een breder scherm naast elkaar, op de gsm onder elkaar */}
