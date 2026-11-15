@@ -1,4 +1,7 @@
+import { LogOut } from "lucide-react";
+import { logout } from "@/app/login/actions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InviteLink } from "@/components/invite-link";
 import { getCurrentGroup } from "@/lib/groups";
@@ -12,10 +15,13 @@ export default async function GroupPage() {
   const supabase = await createClient();
   // profiles(...) = "embed": Supabase volgt de foreign key group_members.profile_id → profiles
   // en geeft het profiel mee in hetzelfde antwoord. Eén query in plaats van twee.
-  const { data: members } = await supabase
-    .from("group_members")
-    .select("role, profiles(id, display_name)")
-    .eq("group_id", group.id);
+  const [{ data: members }, { data: { user } }] = await Promise.all([
+    supabase
+      .from("group_members")
+      .select("role, profiles(id, display_name)")
+      .eq("group_id", group.id),
+    supabase.auth.getUser(),
+  ]);
 
   return (
     <>
@@ -44,13 +50,26 @@ export default async function GroupPage() {
           <ul className="divide-y">
             {members?.map((m) => (
               <li key={m.profiles.id} className="flex items-center justify-between py-2">
-                <span className="text-lg">{m.profiles.display_name}</span>
+                <span className="text-lg">
+                  {m.profiles.display_name}
+                  {m.profiles.id === user?.id && <span className="text-muted-foreground"> (ik)</span>}
+                </span>
                 {m.role === "admin" && <Badge variant="secondary">admin</Badge>}
               </li>
             ))}
           </ul>
         </CardContent>
       </Card>
+
+      {/* Zo zie je altijd als wie je ingelogd bent (handig met meerdere accounts) */}
+      <div className="flex items-center justify-between gap-4">
+        <p className="min-w-0 truncate text-muted-foreground">Ingelogd als {user?.email}</p>
+        <form action={logout}>
+          <Button type="submit" variant="outline">
+            <LogOut /> Uitloggen
+          </Button>
+        </form>
+      </div>
     </>
   );
 }

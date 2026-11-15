@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getCurrentGroup } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 
 // success: true → het formulier mag leeg (React doet dat zelf na het versturen).
@@ -101,5 +102,88 @@ export async function deleteTicket(ticketId: string): Promise<TicketFormState> {
 
   revalidatePath(`/gigs/${data.event_id}`);
   revalidatePath("/debts");
+  return { success: true };
+}
+
+// ============ TERUGBETALEN (feature 4) ============
+//
+// Wie mag afvinken dat iets terugbetaald is? Alleen de KOPER (buyer): die heeft het geld
+// gekregen en weet dus zeker dat het binnen is. Zou de schuldenaar zelf mogen afvinken,
+// dan kan iemand zijn schuld "wegklikken" zonder te betalen.
+// RLS kan dat niet afdwingen (die policy kijkt alleen naar de groep), dus doen we het
+// hier: we filteren de update op buyer_id = jij.
+
+const ReimburseSchema = z.object({
+  ticketId: z.uuid({ error: "Ongeldig ticket" }),
+  reimbursed: z.boolean(),
+});
+
+// Eén ticket afvinken (reimbursed = true) of per ongeluk afgevinkt terugdraaien (false).
+export async function setReimbursed(ticketId: string, reimbursed: boolean): Promise<TicketFormState> {
+  const parsed = ReimburseSchema.safeParse({ ticketId, reimbursed });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Niet ingelogd" };
+
+  const { data, error } = await supabase
+    .from("tickets")
+    .update({
+      reimbursed: parsed.data.reimbursed,
+      // Wanneer terugbetaald, of weer leeg als we het terugdraaien
+      reimbursed_at: parsed.data.reimbursed ? new Date().toISOString() : null,
+    })
+    .eq("id", parsed.data.ticketId)
+    .eq("buyer_id", user.id) // ← de regel "alleen de koper"
+    .select("event_id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  // 0 rijen: het ticket bestaat niet, of jij bent niet de koper
+  if (!data) return { error: "Alleen wie het ticket betaalde, kan dit afvinken" };
+
+  revalidatePath(`/gigs/${data.event_id}`);
+  revalidatePath("/debts");
+  return { success: true };
+}
+
+// Een hele schuld in één keer vereffenen: "Jan heeft me alles terugbetaald".
+// Vinkt alle openstaande tickets af die jij kocht voor debtorId, in jouw huidige groep.
+// Dat is precies de rij die de view open_debts toont, dus na afloop verdwijnt die rij.
+export async function settleDebt(debtorId: string): Promise<TicketFormState> {
+  const id = z.uuid().safeParse(debtorId);
+  if (!id.success) return { error: "Ongeldige persoon" };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Niet ingelogd" };
+
+  const group = await getCurrentGroup();
+  if (!group) return { error: "Je zit nog in geen groep" };
+
+  // Een update kan niet filteren op een kolom van een andere tabel (events.group_id).
+  // Dus eerst de id's van de events van de groep ophalen, en dan .in("event_id", ...).
+  const { data: events, error: eventsError } = await supabase
+    .from("events")
+    .select("id")
+    .eq("group_id", group.id);
+  if (eventsError) return { error: eventsError.message };
+
+  const { data, error } = await supabase
+    .from("tickets")
+    .update({ reimbursed: true, reimbursed_at: new Date().toISOString() })
+    .eq("buyer_id", user.id)
+    .eq("holder_id", id.data)
+    .eq("reimbursed", false) // al afgevinkte tickets laten we met rust (hun datum blijft)
+    .in("event_id", events.map((e) => e.id))
+    .select("event_id");
+  if (error) return { error: error.message };
+  if (data.length === 0) return { error: "Er stond niets open" };
+
+  revalidatePath("/debts");
+  // Alle betrokken detailpagina's verversen. new Set: elke gig maar één keer.
+  for (const eventId of new Set(data.map((t) => t.event_id))) {
+    revalidatePath(`/gigs/${eventId}`);
+  }
   return { success: true };
 }

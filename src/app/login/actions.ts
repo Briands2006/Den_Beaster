@@ -1,5 +1,6 @@
 "use server";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,4 +21,13 @@ export async function sendMagicLink(_prev: LoginState, formData: FormData): Prom
     options: { emailRedirectTo: `${origin}/auth/confirm` },
   });
   return error ? { error: error.message } : { success: "Check je mailbox 🤘" };
+}
+
+// Uitloggen: Supabase wist de sessie-cookies, daarna terug naar /login.
+// Een Server Action (POST) en geen gewone link (GET): een link kan door een browser of
+// mailscanner vooraf geopend worden (denk aan Safe Links), en dan word je ongewild uitgelogd.
+export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
 }
