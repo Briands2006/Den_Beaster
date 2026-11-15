@@ -71,7 +71,7 @@ export default async function GigPage({ params }: PageProps<"/gigs/[id]">) {
             <>
               <ul className="divide-y">
                 {tickets.map((t) => (
-                  <TicketRow key={t.id} ticket={t} />
+                  <TicketRow key={t.id} ticket={t} currentUserId={user.id} />
                 ))}
               </ul>
               {/* pr-11: zelfde inspringing als de prijzen erboven (ruimte van de verwijderknop) */}

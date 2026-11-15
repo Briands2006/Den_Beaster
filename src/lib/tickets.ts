@@ -12,7 +12,7 @@ export const getTickets = cache(async (eventId: string) => {
   const { data, error } = await supabase
     .from("tickets")
     .select(
-      `id, price_cents, ticket_type, reimbursed,
+      `id, price_cents, ticket_type, reimbursed, reimbursed_at,
        buyer:profiles!tickets_buyer_id_fkey(id, display_name),
        holder:profiles!tickets_holder_id_fkey(id, display_name)`
     )

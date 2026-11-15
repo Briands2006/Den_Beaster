@@ -44,3 +44,13 @@ export function countdown(days: number) {
   if (days > 1 && days <= 7) return `Over ${days} dagen`;
   return null;
 }
+
+// Een tijdstip (timestamptz, bv. reimbursed_at) als korte datum: "15 nov.".
+// Anders dan gigDate is dit een echt moment in de tijd, geen kale datum. Dus hier
+// rekenen we wél om naar Belgische tijd: om 00:30 bij ons is het in UTC nog gisteren.
+const shortDateFormatter = new Intl.DateTimeFormat("nl-BE", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Europe/Brussels",
+});
+export const shortDate = (timestamp: string) => shortDateFormatter.format(new Date(timestamp));
